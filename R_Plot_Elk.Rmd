@@ -1,0 +1,378 @@
+---
+title: "R Plot Elk Data Series"
+author: "RUMI 2017"
+output:
+  html_notebook:
+    number_sections: yes
+    theme: journal
+    toc: yes
+  html_document:
+    df_print: paged
+    toc: yes
+  pdf_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#library(knitr)
+#opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+# Introduction
+
+This document illustrate how to load data from Elastic leveraging Spark Hadoop and Hive. Assuming all is already configured.
+the table as defined in hive looks like 
+
+```
+CREATE EXTERNAL TABLE blueprism (
+  id STRING,
+  ts TIMESTAMP,
+  processprocessname STRING,
+  processname STRING,
+  stagename STRING,
+  actionname STRING,
+  runningresourcename STRING,
+  processduration FLOAT,
+  startdatetime TIMESTAMP,
+  duration FLOAT
+)
+ROW FORMAT SERDE 'org.elasticsearch.hadoop.hive.EsSerDe'  
+STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler'  
+TBLPROPERTIES(
+'es.nodes' = 'mbp15.local',
+'es.resource' = 'blueprism.process.completed-*',
+'es.read.metadata' = 'true',
+'es.mapping.names' = 'id:_metadata._id, actionname:actionname, ts:@timestamp,processname:processname,stagename:stagename,runningresourcename:runningresourcename,processduration:processduration,startdatetime:startdatetime,duration:duration,processprocessname:processprocessname',
+'es.scroll.size' = '10',
+'es.mapping.id' = 'id');
+```
+
+# Initializing spark configuration
+
+
+
+```{r spark configuration, warning=FALSE}
+# setting environment, to make it works with 
+
+spark_env = list('spark.executor.memory' = '2g',
+                 'spark.executor.instances' = '4',
+                 'spark.executor.cores' = '4',
+                 'spark.driver.memory' = '1g',
+                 'spark.cores.max' = '4',
+                 'spark.total-executor-cores' = '4',
+                 'spark.sql.globalTempDatabase'= 'testGlobal',
+                 'spark.es.nodes'=	'MBP15.local',
+                 'spark.serializer'=	'org.apache.spark.serializer.KryoSerializer',
+                 'spark.eventLog.dir'= 'hdfs://mbp15.local:9000/tmp',
+                 'spark.eventLog.enabled'= 'true',
+                 'spark.driver.extraClassPath' = '/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.0/dist/elasticsearch-hadoop-6.0.0.jar')
+```                 
+                 
+                 
+# Setting paramteter to call spark-submit
+
+```{r SPARKR_SUBMIT_ARGS setting, tidy=TRUE}
+Sys.setenv("SPARKR_SUBMIT_ARGS"="--master spark://MBP15.local:7077 --driver-memory 4g --total-executor-cores 8  --executor-memory 4g  --num-executors 1 --driver-cores 1 --executor-cores 1 --deploy-mode client sparkr-shell")
+```
+
+
+# Create spark session
+
+```{r Create spark session, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE}
+library(SparkR)
+sparkR.session.stop()
+
+sparkR.session(appName = "RStudio-SparkHive-SpecificSetup",
+               sparkHome = Sys.getenv("SPARK_HOME"),
+               sparkConfig = spark_env ,
+               enableHiveSupport = TRUE,
+               sparkExecutorEnv=list(PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/usr/local/Cellar/hadoop/2.7.3/bin:/usr/local/Cellar/hadoop/2.7.3/sbin",
+               SPARK_CLASSPATH="/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/hadoop/Downloads/bin:/Users/rumi/Downloads/bin:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.0/dist/elasticsearch-hadoop-6.0.0.jar"))
+setLogLevel('ERROR')
+```
+
+# Provide few informations about current Hive context
+
+```{r Hive information, warning=FALSE, tidy=TRUE}
+head(sql("show databases"))
+head(sql("use rumi"))
+head(sql("show tables"))
+```
+
+# First query on Hive/Elastic/Spark - this illustrate the lazzy evaluation
+
+When running the first command in R studio, you will notice that nothing happen until the second command (in this case print
+) is executed. Be careful this the lazy evaluation create sometime the perception that everythign goes well until it is truly evaluated.
+You will notice that th object ``bp`` created is of type ```SparkDataFrame```, in order to use all R packages, it will have to be converted into a R dataframe.
+
+```{r First elastic query, tidy=TRUE}
+bp <- sql("select processprocessname,processduration from blueprism where processduration is not null limit 100")
+print(bp)
+```
+
+# Convert SparkDataFrame into R dataframe
+```{r SparkDataFrame -> R dataframe, tidy=TRUE}
+bp_local <- collect(select(bp,"processprocessname", "processduration"))
+head(bp_local)
+```
+
+# Basic Plot  
+
+```{r First Plot, tidy=TRUE}
+library("ggplot2")
+
+ggplot(data=bp_local, aes(x=processprocessname,..count..)) + geom_bar(alpha=.9) + xlab("processprocessname") +
+  labs(title= "Top processes # execution ") +
+  theme(title =element_text(size=10, face='bold'),axis.text=element_text(size=6))
+
+```
+
+# Explore basic R capability for later
+
+```{r Explore R and Spark Dataframe, tidy=TRUE}
+test <- function(p)
+{
+  tmp <- paste0('select processprocessname,processduration from blueprism where processprocessname like \"',p,'\" and duration is not null limit 10')
+  dd <- sql(tmp)
+  print(typeof(dd))
+  print(collect(dd))
+}
+
+test("Queue Step 1")
+```
+
+Interesting type ``S4``, please have a look to the documentation and you will discover that even though R seems to be easy with data type, it is becoming more complex when manipulating elaborated data structure! Enjoy :-)
+
+```{r Define Spark/Hive Sql Functions, tidy=TRUE}
+# BP_1 explore how to construct dynamic SQL query on hive
+# paste0 function concatene strings 
+# select function selects a set of columns with names or Column expressions.
+# t function transpose vector or matrix
+BP_1 <- function(p) {
+  t(collect(select(sql(paste0('select processduration from rumi.blueprism where processprocessname like "',p,'" and duration is not null limit 10')),"processduration")))
+}
+
+# BP 2 runs a query with no null value in processduration as well as limiting the output at <p> elements.
+BP_2 <- function(p) {
+  
+  sql(paste0('select processprocessname,processduration,startdatetime  from rumi.blueprism where processduration is not null limit ',p))
+}
+
+# BP_2_nolimit when called with <0>, the query will run without limiting the number of records returned.
+
+BP_2_nolimit <- function(p) {
+  sql(paste0('select *  from rumi.blueprism where processduration is not null', if(p>0) paste0(' limit ',p)))
+}
+
+BP_3 <- function(df){
+  TaskNameList <- distinct(select(df,"processprocessname")) # get list of all possible tasks
+  dapply(TaskNameList,function(p) {select(filter(df,df$processprocessname == p ),"processduration")},schema(df))
+}
+
+
+BP_4_nolimit <- function(p) {
+  
+  sql(paste0('select processprocessname,processduration,startdatetime from rumi.blueprism where processduration is not null and startdatetime between "2017-09-22 07:48:22.000" and "2017-09-22 09:21:54.000"', if(p>0) paste0(' limit ',p)))
+}
+```
+
+
+```{r Create first RDD, fig.keep='all', message=FALSE, warning=FALSE, results='hide', tidy=TRUE}
+# cache SparkDataFrame containing 10000 records from blueprism index in elastic
+SPDF_QP <- cache(BP_2_nolimit(0))
+#add column with conversion of Date in Julian Format
+SPDF_QP$julian <- date_format(SPDF_QP$startdatetime,'yyyyD')
+# move SparkDataFrame to R DataFrame
+# We need to be careful to have enough memory locally to stored the data
+# when executing the following command you will notice the lazy evaluation built in.
+QP <- collect(select(filter(SPDF_QP, 'startdatetime between "2017-10-10 21:11:44.375" and "2017-10-17 18:24:55.379"'),
+                     "processprocessname","processduration"))
+# select from the dataframe the list of different processname
+# this is going to be helpful when applying processing using functional map on list or dataframe
+tlist <- as.list(collect(distinct(select(SPDF_QP,"processprocessname")))[,1])
+# however the precedent query is executed on the complete dataset, it means there maybe process that are not included
+# in the QP dataset this can further harm the mapping process later
+# select unique element in the R list and return a R list
+tlist <- unique(QP$processprocessname)
+```
+
+# Function defining different plot rendering
+
+```{r Create Plot Functions}
+ER_Plot1 <- function(x,chart_title="no title"){
+  # in case a row is empty, hist will raise an exception, it needs to be tested
+  if (NROW(x) > 0) hist(x,main= paste("Duration stats Process:",chart_title), xlab="Seconds",cex.main=1)
+}
+
+ER_Plot2 <- function(x,chart_title="no title"){
+  # compare to normal distribution
+  if (NROW(x) > 0) { 
+    h<-hist(x, breaks=10, col="red", xlab="Seconds", cex.main=1,
+            main=paste("Duration stats Process:",chart_title)) 
+    xfit<-seq(min(x),max(x),length=40) 
+    yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
+    yfit <- yfit*diff(h$mids[1:2])*length(x) 
+    ypfit<-pnorm(xfit,mean=mean(x),sd=sd(x)) 
+    ypfit <- ypfit*diff(h$mids[1:2])*length(x) 
+    #yqfit<-qnorm(xfit,mean=mean(x),sd=sd(x)) 
+    #yqfit <- yqfit*diff(h$mids[1:2])*length(x) 
+    #yrfit<-rnorm(xfit,mean=mean(x),sd=sd(x)) 
+    #yrfit <- yrfit*diff(h$mids[1:2])*length(x) 
+    lines(xfit, yfit, col="blue", lwd=2)
+    lines(xfit, ypfit, col="green", lwd=2)
+    #lines(xfit, yqfit, col="cyan", lwd=2)
+    #lines(xfit, yrfit, col="magenta", lwd=2)
+  }
+}
+
+ER_Plot3 <- function(p,chart_title="no title"){
+  if (NROW(p) > 0) {
+    ggplot(NULL,aes(p,y=..count..),cex.main=1) + 
+      geom_histogram(aes(y = ..density..)) +
+      # aes(fill=..count..)) + 
+      scale_y_sqrt() +
+      geom_density(aes(y = ..density..),colour="black",linetype=1,size=.2,fill=hcl(100,180,70,.3)) +
+      # stat_density(adjust=mean(p)) +
+      labs(title= paste("Duration stats Process:",chart_title)) +
+      labs(x="Seconds")}
+}
+
+ER_Plot4 <- function(p,chart_title="no title"){
+  if (NROW(p) > 0) {
+    newplot <- ggplot(NULL,aes(p,y=..count..),cex.main=1) + 
+      geom_histogram(aes(y = ..density..))+
+      #aes(fill=..count..)) + 
+      scale_y_sqrt() +
+      geom_density(aes(y = ..density..),colour="red",linetype=3,size=.2,fill="gray98",alpha=.4) +
+      # stat_density(adjust=mean(p)) +
+      labs(title= paste("Duration stats Process:",chart_title)) +
+      labs(x="Seconds") + theme(title =element_text(size=6, face='bold'))
+    scale_fill_gradient("Count", low = "green", high = "red")
+    return(newplot)
+  }
+  return(NULL)
+}
+```
+
+# Create as many plot as we have processes
+
+```{r Create Plots using map paradigm,echo=FALSE,fig.keep='all', tidy=TRUE}
+par(mfrow=c(2,2))
+
+lapply(tlist, function(p){ER_Plot1(subset.data.frame(QP,processprocessname == p)$processduration,p)})
+
+lapply(tlist, function(p){ER_Plot2(subset.data.frame(QP,processprocessname == p)$processduration,p)})
+
+lapply(tlist, function(p){ER_Plot3(subset.data.frame(QP,processprocessname == p)$processduration,p)})
+
+library(gridExtra)
+
+marrangeGrob(
+  Filter(Negate(is.null),lapply(tlist, function(p){ER_Plot4(subset.data.frame(QP,processprocessname == p)$processduration,p)})),nrow=2,ncol=2)
+
+
+
+```
+
+
+
+```{r filtering RDD being cached, tidy=TRUE}
+# interesting usage of grepl - logical grep as opposed grep which return the result of the grep applied
+QP_Check <- subset.data.frame(QP,grepl("*Hello*",processprocessname))
+head(QP_Check)
+hist(QP_Check$processduration)
+
+```
+
+```{r Plot on filtered data, tidy=TRUE}
+ER_Plot2(QP_Check$processduration,"test")
+ER_Plot4(QP_Check$processduration,"test")
+
+```
+
+# Compare to binomial distribution
+
+```{r Binomial distribution, tidy=TRUE}
+x <- QP_Check$processduration 
+h<-hist(x, breaks=10, col="red", xlab="Miles Per Gallon", 
+        main="Histogram with Normal Curve") 
+xfit<-seq(min(x),max(x),length=40) 
+yfit<-dbinom(seq(1,length=40),100,.10)
+yfit <- yfit*length(x)
+lines(xfit, yfit, col="blue", lwd=2)
+```
+
+# Interesting example to learn how to zoom in
+
+```{r Plot Zoom calibration, tidy=TRUE}
+{
+hist(subset.data.frame(QP,processduration < 500)$processduration)
+density(subset.data.frame(QP,processduration < 500)$processduration)
+
+grid.arrange(
+ggplot(QP, aes(QP$processduration)) + geom_histogram() +
+labs(title= paste("Default"))+theme(title =element_text(size=8, face='bold')),
+ggplot(QP, aes(QP$processduration)) + geom_histogram(breaks=seq(0, 1000, by = 100)) +
+labs(title= paste("0 to 1000 by 100"))+theme(title =element_text(size=8, face='bold')),
+ggplot(QP, aes(QP$processduration)) + geom_histogram(breaks=seq(0, 200, by = 10)) +
+labs(title= paste("0 to 200 by 10"))+theme(title =element_text(size=8, face='bold')),
+ggplot(QP, aes(QP$processduration)) + geom_histogram(breaks=seq(0, 100, by = 10))+
+labs(title= paste("0 to 100 by 10"))+theme(title =element_text(size=8, face='bold')),
+ggplot(QP, aes(QP$processduration)) + geom_histogram(breaks=seq(0, 5, by = .5))+
+labs(title= paste("0 to 5 by .5"))+theme(title =element_text(size=8, face='bold')),
+ggplot(QP, aes(QP$processduration)) + geom_histogram(breaks=seq(0, 5, by = .1))+
+labs(title= paste("0 to 5 by .1"))+theme(title =element_text(size=8, face='bold')))
+
+
+density(QP$processduration)
+
+   }
+
+```
+
+# Scattered chart : have a Taste
+
+```{r Scatter 2D-3D Plots : just a taste, message=FALSE, warning=FALSE, tidy=TRUE}
+
+QP2 <- collect(filter(SPDF_QP, 'duration is not null and startdatetime between "2017-08-13 05:00:59.016" and "2017-09-01 00:00:00.000"'))
+head(QP2)
+
+# x <- subset.data.frame(QP2,processduration < 100 & processduration >0 & grepl("*",processprocessname))
+
+x <- subset.data.frame(QP2,grepl("*",processprocessname))
+
+plot(x$julian,x$processduration, main="Scater Plot", 
+col=rgb(0,100,0,50,maxColorValue=255), pch=21)
+library("plot3D")
+
+xx <- julian.l <- as.numeric(x$julian)
+yy <- processduration.l <- as.numeric(x$processduration)
+zz <- duration <- as.numeric(x$duration)*100
+scatter2D(xx, yy, colvar = NULL, col = NULL, add = FALSE)
+
+scatter3D(xx, yy, zz, clab = c("julian", "processduration","stageduration"))
+scatter3D(xx,yy,zz)
+ 
+
+library(scatterplot3d) 
+scatterplot3d(x$julian,x$processduration,x$duration, pch=16, highlight.3d=TRUE,
+  type="h", main="3D Scatterplot") 
+
+```
+
+
+
+
+# plot histogram from spark "direclty"
+
+When using more and more spark, it will not necessarily be a valid option to copy the SparkDataFrame into R dataframe : it may not fit into the local memory space in addition to make the multiple copies redundant and heavy to process in io.
+
+
+
+```{r}
+
+
+# sparkR.session.stop()
+
+```
