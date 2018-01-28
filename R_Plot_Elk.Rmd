@@ -23,7 +23,6 @@ editor_options:
 
 This document illustrate how to load data from Elastic leveraging Spark Hadoop and Hive. Assuming all is already configured.
 the table as defined in hive looks like (elastic index structure can be found [here](./Elk-Ref.Rmd))
-
 ```
 CREATE EXTERNAL TABLE blueprism (
   id STRING,
