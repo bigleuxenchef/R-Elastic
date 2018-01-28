@@ -1,13 +1,19 @@
 ---
 title: "Elasticsearch.md"
-output: html_document
+output: 
+  html_notebook: 
+    theme: journal
+    toc: yes
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Elasticsearch index strcuture *blueprism.process.completed-\**
+## Elasticsearch index structure *blueprism.process.completed-\**
+
 
 ```json
 {
