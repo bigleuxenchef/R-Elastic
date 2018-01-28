@@ -1,0 +1,201 @@
+---
+title: "Elasticsearch.md"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Elasticsearch index strcuture *blueprism.process.completed-\**
+
+```json
+{
+    "blueprism.process.completed-<YYYY>.<MM>.<DD>": {
+        "mappings": {
+            "blueprism.process.completed": {
+                "_all": {
+                    "enabled": true
+                },
+                "properties": {
+                    "@timestamp": {
+                        "type": "date"
+                    },
+                    "@version": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "actionname": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "automateworkingset": {
+                        "type": "long"
+                    },
+                    "duration": {
+                        "type": "float"
+                    },
+                    "enddatetime": {
+                        "type": "date"
+                    },
+                    "objectname": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "pagename": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "processduration": {
+                        "type": "float"
+                    },
+                    "processenddatetime": {
+                        "type": "date"
+                    },
+                    "processname": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "processprocessname": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "processstartdatetime": {
+                        "type": "date"
+                    },
+                    "result": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "resulttype": {
+                        "type": "long"
+                    },
+                    "runningosusername": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "runningresourcename": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "seqnum": {
+                        "type": "long"
+                    },
+                    "sessionnumber": {
+                        "type": "long"
+                    },
+                    "stageid": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "stagename": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "stagetype": {
+                        "type": "long"
+                    },
+                    "startdatetime": {
+                        "type": "date"
+                    },
+                    "starterresourcename": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "starterusername": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "targetappname": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "targetappworkingset": {
+                        "type": "long"
+                    },
+                    "type": {
+                        "type": "text",
+                        "fields": {
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+```
