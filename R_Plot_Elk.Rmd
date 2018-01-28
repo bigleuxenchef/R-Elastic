@@ -375,3 +375,5 @@ When using more and more spark, it will not necessarily be a valid option to cop
 # sparkR.session.stop()
 
 ```
+
+[rendering](./R_Plot_Elk.html)
