@@ -22,7 +22,7 @@ editor_options:
 # Introduction
 
 This document illustrate how to load data from Elastic leveraging Spark Hadoop and Hive. Assuming all is already configured.
-the table as defined in hive looks like 
+the table as defined in hive looks like (elastic index structure can be found [here](./Elk-Ref.Rmd))
 
 ```
 CREATE EXTERNAL TABLE blueprism (
@@ -66,7 +66,7 @@ spark_env = list('spark.executor.memory' = '2g',
                  'spark.serializer'=	'org.apache.spark.serializer.KryoSerializer',
                  'spark.eventLog.dir'= 'hdfs://mbp15.local:9000/tmp',
                  'spark.eventLog.enabled'= 'true',
-                 'spark.driver.extraClassPath' = '/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.0/dist/elasticsearch-hadoop-6.0.0.jar')
+                 'spark.driver.extraClassPath' = '/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.1/dist/elasticsearch-hadoop-6.0.1.jar')
 ```                 
                  
                  
@@ -88,7 +88,7 @@ sparkR.session(appName = "RStudio-SparkHive-SpecificSetup",
                sparkConfig = spark_env ,
                enableHiveSupport = TRUE,
                sparkExecutorEnv=list(PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/usr/local/Cellar/hadoop/2.7.3/bin:/usr/local/Cellar/hadoop/2.7.3/sbin",
-               SPARK_CLASSPATH="/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/hadoop/Downloads/bin:/Users/rumi/Downloads/bin:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.0/dist/elasticsearch-hadoop-6.0.0.jar"))
+               SPARK_CLASSPATH="/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/hadoop/Downloads/bin:/Users/rumi/Downloads/bin:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.1/dist/elasticsearch-hadoop-6.0.1.jar"))
 setLogLevel('ERROR')
 ```
 
@@ -202,7 +202,7 @@ tlist <- unique(QP$processprocessname)
 ```{r Create Plot Functions}
 ER_Plot1 <- function(x,chart_title="no title"){
   # in case a row is empty, hist will raise an exception, it needs to be tested
-  if (NROW(x) > 0) hist(x,main= paste("Duration stats Process:",chart_title), xlab="Seconds",cex.main=1)
+  if (NROW(x) > 0) hist(x,main= paste("Duration stats Process:",chart_title), xlab="Seconds",cex.main=1,xlim=c(0,mean(x)+6*sd(x)))
 }
 
 ER_Plot2 <- function(x,chart_title="no title"){
@@ -228,11 +228,11 @@ ER_Plot2 <- function(x,chart_title="no title"){
 
 ER_Plot3 <- function(p,chart_title="no title"){
   if (NROW(p) > 0) {
-    ggplot(NULL,aes(p,y=..count..),cex.main=1) + 
-      geom_histogram(aes(y = ..density..)) +
+    ggplot(NULL,aes(p,y=..count..),cex.main=1) + xlim(0,mean(p)+6*sd(p)) +
+      geom_histogram(aes(y = ..density..)) + 
       # aes(fill=..count..)) + 
       scale_y_sqrt() +
-      geom_density(aes(y = ..density..),colour="black",linetype=1,size=.2,fill=hcl(100,180,70,.3)) +
+      geom_density(aes(y = ..density..),colour="black",linetype=1,size=.2,fill=hcl(100,180,70,.3),adjust=5) +
       # stat_density(adjust=mean(p)) +
       labs(title= paste("Duration stats Process:",chart_title)) +
       labs(x="Seconds")}
@@ -295,7 +295,7 @@ ER_Plot4(QP_Check$processduration,"test")
 
 ```{r Binomial distribution, tidy=TRUE}
 x <- QP_Check$processduration 
-h<-hist(x, breaks=10, col="red", xlab="Miles Per Gallon", 
+h<-hist(x, breaks=10, col="red", xlab="Miles Per Gallon", xlim=c(0,mean(x)+2*sd(x)),
         main="Histogram with Normal Curve") 
 xfit<-seq(min(x),max(x),length=40) 
 yfit<-dbinom(seq(1,length=40),100,.10)
