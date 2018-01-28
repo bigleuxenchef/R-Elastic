@@ -2,14 +2,14 @@
 title: "R Plot Elk Data Series"
 author: "RUMI 2017"
 output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: yes
   html_notebook:
     number_sections: yes
     theme: journal
     toc: yes
-  html_document:
-    df_print: paged
-    toc: yes
-  pdf_document: default
 editor_options:
   chunk_output_type: inline
 ---
