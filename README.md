@@ -1,5 +1,6 @@
 # R-Elastic
 Integration of R into Hadoop-Spark-Hive and elastic
 
-
-http://htmlpreview.github.com/?https://raw.githubusercontent.com/bigleuxenchef/R-Elastic/master/R_Plot_Elk.html
+- [Elk Data Mapping Definition](./Elk-Ref.Rmd)
+- [R markdown sample](./R_Plot_Elk.Rmd)
+- [Html Rendring of R execution](https://rawgit.com/bigleuxenchef/R-Elastic/master/R_Plot_Elk.html)
