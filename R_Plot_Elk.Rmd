@@ -68,10 +68,10 @@ SPARK_VER = "2.3.0"
 
 spark_env = list('spark.executor.memory' = '2g',
                  'spark.executor.instances' = '4',
-                 'spark.executor.cores' = '4',
+                 'spark.executor.cores' = '8',
                  'spark.driver.memory' = '1g',
-                 'spark.cores.max' = '4',
-                 'spark.total-executor-cores' = '4',
+                 'spark.cores.max' = '8',
+                 'spark.total-executor-cores' = '8',
                  'spark.es.nodes'=	ELASTIC_NODE,
                  'spark.serializer'=	'org.apache.spark.serializer.KryoSerializer',
                  'spark.eventLog.dir'= paste0(HADOOP_URI,'/tmp'),
@@ -199,7 +199,7 @@ SPDF_QP$julian <- date_format(SPDF_QP$startdatetime,'yyyyD')
 # move SparkDataFrame to R DataFrame
 # We need to be careful to have enough memory locally to stored the data
 # when executing the following command you will notice the lazy evaluation built in.
-QP <- collect(select(filter(SPDF_QP, 'startdatetime between "2017-10-10 21:11:44.375" and "2017-10-17 18:24:55.379"'),
+QP <- collect(select(filter(SPDF_QP, 'startdatetime between "2016-10-10 21:11:44.375" and "2019-10-17 18:24:55.379"'),
                      "processprocessname","processduration"))
 # select from the dataframe the list of different processname
 # this is going to be helpful when applying processing using functional map on list or dataframe
@@ -390,4 +390,3 @@ When using more and more spark, it will not necessarily be a valid option to cop
 
 ```
 
-[rendering](./R_Plot_Elk.html)
