@@ -2,14 +2,14 @@
 title: "R Plot Elk Data Series"
 author: "RUMI 2017"
 output:
-  pdf_document: default
-  html_document:
-    df_print: paged
-    toc: yes
   html_notebook:
     number_sections: yes
     theme: journal
     toc: yes
+  html_document:
+    df_print: paged
+    toc: yes
+  pdf_document: default
 editor_options:
   chunk_output_type: inline
 ---
@@ -47,8 +47,20 @@ TBLPROPERTIES(
 'es.mapping.id' = 'id');
 ```
 
-# Initializing spark configuration
 
+# Setting up the environment
+
+
+```{r}
+HADOOP_URI = 'hdfs://rumi-wpp-ubuntu.local:9000'
+SPARK_URI =  'spark://rumi-wpp-ubuntu.local:7077'
+ELASTIC_NODE = '192.168.56.1'
+ELASTIC_VER = "6.2.2"
+HADOOP_VER = "2.7.3"
+SPARK_VER = "2.3.0"
+```
+
+# Initializing spark configuration
 
 
 ```{r spark configuration, warning=FALSE}
@@ -60,19 +72,19 @@ spark_env = list('spark.executor.memory' = '2g',
                  'spark.driver.memory' = '1g',
                  'spark.cores.max' = '4',
                  'spark.total-executor-cores' = '4',
-                 'spark.sql.globalTempDatabase'= 'testGlobal',
-                 'spark.es.nodes'=	'MBP15.local',
+                 'spark.es.nodes'=	ELASTIC_NODE,
                  'spark.serializer'=	'org.apache.spark.serializer.KryoSerializer',
-                 'spark.eventLog.dir'= 'hdfs://mbp15.local:9000/tmp',
+                 'spark.eventLog.dir'= paste0(HADOOP_URI,'/tmp'),
                  'spark.eventLog.enabled'= 'true',
-                 'spark.driver.extraClassPath' = '/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.1/dist/elasticsearch-hadoop-6.0.1.jar')
+                 'spark.driver.extraClassPath' = paste0('/usr/local/Cellar/apache-spark/',SPARK_VER,'/libexec/jars/*'))
+# do not forget to copy elasticsearch-hadoop-<ELASTIC_VER>.jar in spark jars here under
 ```                 
                  
                  
 # Setting paramteter to call spark-submit
 
 ```{r SPARKR_SUBMIT_ARGS setting, tidy=TRUE}
-Sys.setenv("SPARKR_SUBMIT_ARGS"="--master spark://MBP15.local:7077 --driver-memory 4g --total-executor-cores 8  --executor-memory 4g  --num-executors 1 --driver-cores 1 --executor-cores 1 --deploy-mode client sparkr-shell")
+Sys.setenv("SPARKR_SUBMIT_ARGS" = paste("--master",SPARK_URI,"--driver-memory 4g --total-executor-cores 8  --executor-memory 4g  --num-executors 1 --driver-cores 1 --executor-cores 1 --deploy-mode client sparkr-shell"))
 ```
 
 
@@ -81,22 +93,24 @@ Sys.setenv("SPARKR_SUBMIT_ARGS"="--master spark://MBP15.local:7077 --driver-memo
 ```{r Create spark session, echo=TRUE, message=FALSE, warning=FALSE, tidy=TRUE}
 library(SparkR)
 sparkR.session.stop()
+Sys.setenv(SPARK_HOME=paste0("/usr/local/Cellar/apache-spark/",SPARK_VER,"/libexec"))
 
 sparkR.session(appName = "RStudio-SparkHive-SpecificSetup",
                sparkHome = Sys.getenv("SPARK_HOME"),
                sparkConfig = spark_env ,
                enableHiveSupport = TRUE,
-               sparkExecutorEnv=list(PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/usr/local/Cellar/hadoop/2.7.3/bin:/usr/local/Cellar/hadoop/2.7.3/sbin",
-               SPARK_CLASSPATH="/usr/local/Cellar/apache-spark/2.1.1/libexec/jars/*:/Users/hadoop/Downloads/bin:/Users/rumi/Downloads/bin:/Users/rumi/Downloads/elasticsearch-hadoop-6.0.1/dist/elasticsearch-hadoop-6.0.1.jar"))
+               sparkExecutorEnv=list(PATH=gsub("HADOOP_VER",HADOOP_VER,"/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/usr/local/Cellar/hadoop/HADOOP_VER/bin:/usr/local/Cellar/hadoop/HADOOP_VER/sbin"),
+               SPARK_CLASSPATH=gsub("SPARK_VER",SPARK_VER, "/usr/local/Cellar/apache-spark/SPARK_VER/libexec/jars/*")))
 setLogLevel('ERROR')
 ```
 
 # Provide few informations about current Hive context
 
-```{r Hive information, warning=FALSE, tidy=TRUE}
+```{r Hive information, warning=FALSE, paged.print=TRUE, tidy=TRUE}
 head(sql("show databases"))
 head(sql("use rumi"))
 head(sql("show tables"))
+head(sql("show tblproperties blueprism"))
 ```
 
 # First query on Hive/Elastic/Spark - this illustrate the lazzy evaluation
@@ -105,13 +119,13 @@ When running the first command in R studio, you will notice that nothing happen 
 ) is executed. Be careful this the lazy evaluation create sometime the perception that everythign goes well until it is truly evaluated.
 You will notice that th object ``bp`` created is of type ```SparkDataFrame```, in order to use all R packages, it will have to be converted into a R dataframe.
 
-```{r First elastic query, tidy=TRUE}
+```{r First elastic query, message=FALSE, warning=FALSE, tidy=TRUE}
 bp <- sql("select processprocessname,processduration from blueprism where processduration is not null limit 100")
 print(bp)
 ```
 
 # Convert SparkDataFrame into R dataframe
-```{r SparkDataFrame -> R dataframe, tidy=TRUE}
+```{r SparkDataFrame -> R dataframe, message=FALSE, warning=FALSE, paged.print=FALSE, tidy=TRUE}
 bp_local <- collect(select(bp,"processprocessname", "processduration"))
 head(bp_local)
 ```
@@ -119,7 +133,7 @@ head(bp_local)
 # Basic Plot  
 
 ```{r First Plot, tidy=TRUE}
-library("ggplot2")
+library("ggplot2") # don't forget to install the library if not yet done
 
 ggplot(data=bp_local, aes(x=processprocessname,..count..)) + geom_bar(alpha=.9) + xlab("processprocessname") +
   labs(title= "Top processes # execution ") +
